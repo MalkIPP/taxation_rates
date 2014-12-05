@@ -247,9 +247,9 @@ if __name__ == '__main__':
          guides(color = guide_legend(ncol=1)) +
          theme_bw() +
          theme(legend.position = "bottom", legend.title = element_blank(),
-               legend.key = element_blank())
-
-         ggsave(filename, plot = graph, width = 5, scale =1)
+               legend.key = element_blank()) +
+         coord_fixed()
+         ggsave(filename, plot = graph, width = 5)
          }
         """)
         plotFunc_2(df_R, "{}.pdf".format(filename))
