@@ -27,30 +27,34 @@ from __future__ import division
 
 
 import datetime
-import os
 
-import matplotlib.pyplot as plt
 import pandas as pd
 
-import plotly.plotly as py
-from plotly.graph_objs import *
-py.sign_in('Python-Demo-Account', 'gwt101uhh0')
+
+try:
+    import plotly.plotly as py
+    from plotly.graph_objs import *
+    py.sign_in('Python-Demo-Account', 'gwt101uhh0')
+except:
+    pass
+
 from ggplot import *
 
 from openfisca_core import periods
 from openfisca_france.tests import base
 from openfisca_core.rates import average_rate, marginal_rate
 
-def celibataire(year,sali):
+
+def celibataire(year, sali):
     return dict(
-        parent1 = dict(birth = datetime.date(year - 40, 1, 1),sali = sali),
+        parent1 = dict(birth = datetime.date(year - 40, 1, 1), sali = sali),
         menage = dict(so = 4),
         )
 
 
-def parent_isole(year,sali):
+def parent_isole(year, sali):
     return dict(
-        parent1 = dict(birth = datetime.date(year - 40, 1, 1),sali = sali),
+        parent1 = dict(birth = datetime.date(year - 40, 1, 1), sali = sali),
         enfants = [
             dict(birth = datetime.date(year - 9, 1, 1)),
             ],
@@ -58,7 +62,7 @@ def parent_isole(year,sali):
         )
 
 
-def couple_sans_enfant(year,sali):
+def couple_sans_enfant(year, sali):
     return dict(
         parent1 = dict(
             birth = datetime.date(year - 40, 1, 1),
@@ -70,7 +74,7 @@ def couple_sans_enfant(year,sali):
         )
 
 
-def couple_deux_enfants(year,sali):
+def couple_deux_enfants(year, sali):
     return dict(
         parent1 = dict(
             birth = datetime.date(year - 40, 1, 1),
@@ -89,10 +93,8 @@ def couple_deux_enfants(year,sali):
         )
 
 
-#def make_df(single_entity_kwargs, count, filename = None, show = None):
- 
 def make_result(year, count, sali, menage):
-    single_entity_kwargs = menage(year,sali)
+    single_entity_kwargs = menage(year, sali)
     filename = "{}_{}".format(menage.__name__, year)
     single_entity_kwargs.update(
         dict(
@@ -111,41 +113,45 @@ def make_result(year, count, sali, menage):
 #    print single_entity_kwargs
     scenario = base.tax_benefit_system.new_scenario().init_single_entity(**single_entity_kwargs)
     simulation = scenario.new_simulation(debug = True)
-    T= average_rate(
+    T = average_rate(
         target = simulation.calculate('al'),
         varying = simulation.calculate('loyer'),
     )
-    t= marginal_rate(
-            target = simulation.calculate('al'),
-            varying = simulation.calculate('loyer'),
+    t = marginal_rate(
+        target = simulation.calculate('al'),
+        varying = simulation.calculate('loyer'),
         )
-    df1 = pd.DataFrame({"t": t,
-                       })
-    df2= pd.DataFrame({"T": T,
-                       "loyer":simulation.calculate('loyer'),
-                        "al":simulation.calculate('al')/12,
-                       })
-    N = count-1
-    df = pd.concat([df2[0:N], df1],axis = 1)
-    df['sal']="Salaire imposable = {}".format(sali)    
+    df1 = pd.DataFrame({
+        "t": t,
+        })
+    df2 = pd.DataFrame({
+        "T": T,
+        "loyer": simulation.calculate('loyer'),
+        "al": simulation.calculate('al') / 12,
+        })
+    N = count - 1
+    df = pd.concat([df2[0:N], df1], axis = 1)
+    df[u"Salaire imposable"] = sali
+    df[u"Type de ménage"] = menage.__name__
     return df
-    
-def scatter(df,sali):
-    return Scatter(
-        x=df["loyer"], y=df["al"],
-        name = "Salaire imposable = {}".format(sali),
-    )
-def make_df_final(year, count, sali0,sali1,sali2, menage = menage):
-    df1 = make_result(year = 2011, count = 100, sali = sali0, menage = menage)
-    df2= make_result(year = 2011, count = 100, sali = sali1, menage = menage)
-    df3 = make_result(year = 2011, count = 100, sali = sali2, menage = menage)
-    return df1,df2,df3
 
-def make_df_final2(year, count, sali0,sali1,sali2, menage = menage):
-    df1 = make_result(year = 2011, count = 100, sali = sali0, menage = menage)
-    df2= make_result(year = 2011, count = 100, sali = sali1, menage = menage)
-    df3 = make_result(year = 2011, count = 100, sali = sali2, menage = menage)
-    return pd.concat([df1,df2,df3])
+
+#def scatter(df, sali):
+#    return Scatter(
+#        x = df["loyer"],
+#        y = df["al"],
+#        name = "Salaire imposable = {}".format(sali),
+#    )
+#
+
+def make_df_final3(year, count, salis, menages):
+
+    df_list = []
+    for menage in menages:
+        for sali in salis:
+            df = make_result(year = 2011, count = 100, sali = sali, menage = menage)
+            df_list.append(df)
+    return pd.concat(df_list)
 
 
 if __name__ == '__main__':
@@ -153,39 +159,43 @@ if __name__ == '__main__':
     import sys
     logging.basicConfig(level = logging.ERROR, stream = sys.stdout)
 
-    sali0 = 0
-    sali1=5000
-    sali2= 10000
-
-    df_celib = make_df_final2(year = 2011, count = 100, sali0=sali0,sali1=sali1,sali2=sali2, menage = celibataire)
-
-    graph_celib = ggplot(aes(x='loyer', y='al',color = 'sal'),data=df_celib) + \
-        geom_line() + xlab("Loyer mensuel") + ylab("Allocation logement mensuelle") +\
-        ggtitle("2010") 
-    print graph_celib
-    ggsave(graph_celib, file="length.pdf")
-
-    df_celib0,df_celib0,df_celib = make_df_final(year = 2011, count = 100, sali0=sali0,sali1=sali1,sali2=sali2, menage = celibataire)
-    df_parent_isole0,df_parent_isole1,df_parent_isole2 = make_df_final(year = 2011, count = 100, sali0=sali0,sali1=sali1,sali2=sali2, menage = parent_isole)
-    
-    celib0= scatter(df_celib0,sali0)
-    celib1= scatter(df_celib1,sali1)
-    celib2= scatter(df_celib2,sali2)
-
-    parent_isole0= scatter(df_parent_isole0,sali0)
-    parent_isole1= scatter(df_parent_isole1,sali1)
-    parent_isole2= scatter(df_parent_isole2,sali2)
-    
-    data = Data([celib0,celib1,celib2,parent_isole0,parent_isole1,parent_isole2])
-    layout = Layout(
-        xaxis=XAxis(
-            title = 'Loyer mensuel'
+    graph_list = [
+        dict(
+            menages = [celibataire, parent_isole],
+            salis = [0, 8000, 16000],
             ),
-        yaxis=YAxis(
-            title = 'Allocation logement mensuelle'
-            )
-        )
-    fig = Figure(data=data, layout=layout)
-    plot_url = py.plot(fig, filename='line-style')
+        dict(
+            menages = [couple_sans_enfant, couple_deux_enfants],
+            salis = [0, 10000, 20000],
+            ),
+        ]
 
-# En ggplot : 
+    for graph in graph_list:
+        df = make_df_final3(
+            year = 2011, count = 100, salis = graph["salis"], menages = graph["menages"],
+            )
+    #    max_xy_value = min(df_celib.loyer.max(), df_celib.al.max())
+        max_xy_value = 1000
+        graph = (
+            ggplot(
+                aes(
+                    x = 'loyer',
+                    y = 'al',
+                    color = u"Salaire imposable",
+                    linetype = u"Type de ménage",
+                    ),
+                data = df,
+                ) +
+            geom_line() +
+    #        scale_color_manual(values = ["red"] + ["green"] + ["blue"]) +
+            xlab("Loyer mensuel") +
+            ylab("Allocation logement mensuelle") +
+            xlim(low = 0, high = max_xy_value) +
+            ylim(low = 0, high = max_xy_value) +
+            ggtitle("2010") +
+            theme_matplotlib()
+            )
+        print graph
+
+#        ggsave(graph, file="length.pdf")
+
